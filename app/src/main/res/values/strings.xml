@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Image upload test</string>
+    <string name="camera_tag">Camera</string>
+    <string name="gallery_tag">Gallery</string>
+    <string name="resultImage">resultImage</string>
+    <string name="clearImage">clearImage</string>
 </resources>
