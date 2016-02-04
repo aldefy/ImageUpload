@@ -6,4 +6,6 @@
     <string name="clearImage">clearImage</string>
     <string name="upload">UPLOAD</string>
     <string name="login">Login</string>
+    <string name="notifaction_success">Successfully uploaded image</string>
+    <string name="notification_share_link">Share link</string>
 </resources>

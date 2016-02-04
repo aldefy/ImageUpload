@@ -3,16 +3,15 @@ package techgravy.imageuploadtest.activites;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Base64;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
@@ -21,13 +20,8 @@ import android.widget.LinearLayout;
 
 import com.squareup.picasso.Picasso;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 
 import butterknife.Bind;
 import butterknife.ButterKnife;
@@ -35,12 +29,11 @@ import butterknife.OnClick;
 import retrofit.Callback;
 import retrofit.RetrofitError;
 import retrofit.client.Response;
-import retrofit.mime.TypedByteArray;
 import techgravy.imageuploadtest.BuildConfig;
 import techgravy.imageuploadtest.R;
 import techgravy.imageuploadtest.api.ImageUploadApi;
 import techgravy.imageuploadtest.generator.ApiGenerator;
-import techgravy.imageuploadtest.utils.Base64Util;
+import techgravy.imageuploadtest.models.ImageResponse;
 import techgravy.imageuploadtest.utils.CommonUtils;
 import techgravy.imageuploadtest.utils.Logger;
 
@@ -67,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
     @Bind(R.id.uploadButton)
     Button uploadButton;
     String base64;
+    Bitmap bitmap;
 
 
     ImageUploadApi imageUploadApi;
@@ -110,24 +104,22 @@ public class MainActivity extends AppCompatActivity {
     @OnClick(R.id.uploadButton)
     void uploadButton() {
         Logger.d("Base64Util", "Upload " + base64);
-        CommonUtils.displayProgressDialog(MainActivity.this,"Uploading");
-        imageUploadApi.postImage("Client-ID " + BuildConfig.CLIENT_ID, "base64", "Photo", "Desc", base64, new Callback<Response>() {
+        CommonUtils.displayProgressDialog(MainActivity.this, "Uploading");
+        imageUploadApi.postImage("Client-ID " + BuildConfig.CLIENT_ID, "base64", "Photo", "Desc", base64, new Callback<ImageResponse>() {
             @Override
-            public void success(Response response, Response response2) {
-                try {
-                    JSONObject object = new JSONObject(new String(((TypedByteArray) response.getBody()).getBytes()));
-                    Log.d("Image", object.toString());
-                    CommonUtils.dismissProgressDialog();
+            public void success(ImageResponse response, Response response2) {
+                Logger.d("Image", response.toString());
 
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                    CommonUtils.dismissProgressDialog();
-                }
+                CommonUtils.createUploadedNotification(MainActivity.this, response);
+                CommonUtils.dismissProgressDialog();
+                clearImage.setVisibility(View.INVISIBLE);
+                resultImageView.setImageDrawable(null);
+                uploadButton.setEnabled(false);
             }
 
             @Override
             public void failure(RetrofitError error) {
-                Log.d("Image", error.getMessage());
+                Logger.d("Image", error.getMessage());
                 CommonUtils.dismissProgressDialog();
             }
         });
@@ -142,6 +134,20 @@ public class MainActivity extends AppCompatActivity {
                 // use imageFile to open your image
                 Log.d("File", imageFile.length() + "");
                 Picasso.with(MainActivity.this).load(imageFile).into(resultImageView);
+               /* bitmap = ((BitmapDrawable) resultImageView.getDrawable()).getBitmap();
+                base64 = CommonUtils.getBase64ForBitmap(bitmap);*/
+
+                Handler handler = new Handler();
+
+                Runnable myRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        bitmap = BitmapFactory.decodeFile(imageFile.getPath());
+                        base64 = CommonUtils.getBase64ForBitmap(bitmap);
+                    }
+                };
+                handler.post(myRunnable);
+
                 clearImage.setVisibility(View.VISIBLE);
                 clearImage.bringToFront();
                 uploadButton.setEnabled(true);
@@ -151,11 +157,11 @@ public class MainActivity extends AppCompatActivity {
 
             Uri uri = intent.getData();
             try {
-                Bitmap bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
+                bitmap = MediaStore.Images.Media.getBitmap(getContentResolver(), uri);
 
                 resultImageView.setImageBitmap(bitmap);
                 bitmap = ((BitmapDrawable) resultImageView.getDrawable()).getBitmap();
-                base64 = getBase64ForBitmap(bitmap);
+                base64 = CommonUtils.getBase64ForBitmap(bitmap);
                 clearImage.setVisibility(View.VISIBLE);
                 clearImage.bringToFront();
                 uploadButton.setEnabled(true);
@@ -167,44 +173,5 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, intent);
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_login) {
-            startActivity(new Intent(getApplicationContext(), LoginActivity.class));
-            return true;
-        } else {
-            return super.onOptionsItemSelected(item);
-        }
-    }
-
-    public String encodeToBase64(Bitmap image) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        image.compress(Bitmap.CompressFormat.PNG, 30, baos);
-        byte[] b = baos.toByteArray();
-        String imageEncoded = Base64.encodeToString(b, Base64.DEFAULT);
-
-        Log.e("Base64Util", imageEncoded);
-        return imageEncoded;
-    }
-
-    public static String getBase64ForBitmap(Bitmap bitmap) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-        byte[] b = baos.toByteArray();
-        String base64Image = Base64Util.encode(b);
-        byte[] b2 = Base64.decode(base64Image, Base64.DEFAULT);
-        boolean equals = Arrays.equals(b, b2);
-        Log.d("Base64Util",equals+"");
-        Log.d("Base64Util",base64Image);
-        return base64Image;
-
-    }
 
 }
